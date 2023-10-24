@@ -1,0 +1,749 @@
+type: edu
+files:
+  - name: test/CarSharingTest.java
+    visible: false
+    text: |
+      import org.hyperskill.hstest.dynamic.DynamicTest;
+      import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+      import org.hyperskill.hstest.stage.StageTest;
+      import org.hyperskill.hstest.testcase.CheckResult;
+      import org.hyperskill.hstest.testing.TestedProgram;
+      import org.junit.BeforeClass;
+      
+      import java.io.File;
+      
+      public class CarSharingTest extends StageTest<Void> {
+      
+          private static final String databaseFileName = "src/carsharing/db/carsharing.mv.db";
+          private static DatabaseUtil db = new DatabaseUtil();
+      
+          @BeforeClass
+          public static void deleteDatabaseFile() {
+              File file = new File(databaseFileName);
+      
+              if (!file.exists()) {
+                  return;
+              }
+      
+              if (!file.delete()) {
+                  throw new WrongAnswer("Can't delete database file before starting your program.\n" +
+                      "Make sure you close all the connections with the database file!");
+              }
+          }
+      
+          @DynamicTest(order = -1)
+          public CheckResult test2_ifDatabaseExist() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start("-databaseFileName", "carsharing");
+              program.execute("0");
+      
+              if (!program.isFinished()) {
+                  return CheckResult.wrong("After choosing 'Exit' item your program should stop.");
+              }
+      
+              File file = new File(databaseFileName);
+      
+              if (!file.exists()) {
+                  return CheckResult.wrong("Can't find a database file. It should be named 'carsharing.mv.db'" +
+                      " and located in /carsharing/db/ folder.\n" +
+                      "The file should be created right after starting the program!");
+              }
+      
+              return correct();
+          }
+      
+          @DynamicTest
+          public CheckResult test1_testMenu() {
+              TestedProgram program = new TestedProgram();
+              String output = program.start("-databaseFileName", "carsharing");
+      
+              if (!output.contains("1. Log in as a manager")) {
+                  return CheckResult.wrong("Start menu should contain \"1. Log in as a manager\"");
+              }
+      
+              if (!output.contains("0. Exit")) {
+                  return CheckResult.wrong("Start menu should contain \"0. Exit\"");
+              }
+      
+              output = program.execute("1");
+      
+              if (!output.contains("1. Company list")) {
+                  return CheckResult.wrong("After choosing 'Log in as a manager' item you should print menu that contains '1. Company list' item");
+              }
+      
+              if (!output.contains("2. Create a company")) {
+                  return CheckResult.wrong("After choosing 'Log in as a manager' item you should print menu that contains '2. Create a company' item");
+              }
+      
+              if (!output.contains("0. Back")) {
+                  return CheckResult.wrong("After choosing 'Log in as a manager' item you should print menu that contains '0. Back' item");
+              }
+      
+              output = program.execute("0");
+      
+              if (!output.contains("1. Log in as a manager")) {
+                  return CheckResult.wrong("After choosing '0. Back' item you should print previous menu and it should contain \"1. Log in as a manager\"");
+              }
+      
+              if (!output.contains("0. Exit")) {
+                  return CheckResult.wrong("After choosing '0. Back' item you should print previous menu and it should contain \"0. Exit\"");
+              }
+      
+              return CheckResult.correct();
+          }
+      
+          @DynamicTest
+          public CheckResult test3_checkDatabaseConnection() {
+              db.getConnection();
+              return correct();
+          }
+      
+          @DynamicTest
+          public CheckResult test4_checkIfTableExists() {
+              if (!db.ifTableExist("company")) {
+                  return wrong("Can't find table named 'company'");
+              }
+              if (!db.ifTableExist("car")) {
+                  return wrong("Can't find table named 'car'");
+              }
+              return correct();
+          }
+      
+          @DynamicTest
+          public CheckResult test5_checkTableColumns() {
+              String[][] companyColumns = {{"ID", "INT"}, {"NAME", "VARCHAR"}};
+              db.ifColumnsExist("company", companyColumns);
+              db.checkCompanyColumnProperties();
+      
+              String[][] carColumns = {{"ID", "INT"}, {"NAME", "VARCHAR"}, {"COMPANY_ID", "INT"}};
+              db.ifColumnsExist("car", carColumns);
+              db.checkCarColumnProperties();
+              return correct();
+          }
+      
+          @DynamicTest
+          public CheckResult test6_testAddCompany() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start("-databaseFileName", "carsharing");
+      
+              db.clearCarTable();
+              db.clearCompanyTable();
+      
+              program.execute("1");
+              String output = program.execute("1");
+      
+              if (!output.contains("The company list is empty")) {
+                  return wrong("If no company has been created you should print 'The company list is empty' when '1. Company list' item is chosen");
+              }
+      
+              output = program.execute("2");
+      
+              if (!output.contains("Enter the company name")) {
+                  return wrong("After choosing '2. Create a company' item you should ask to enter a company name.\n" +
+                      "Your output should contain 'Enter the company name:'");
+              }
+      
+              program.execute("Super company");
+              output = program.execute("1");
+      
+              if (!output.contains("1. Super company")) {
+                  return wrong("In the company list expected one company.\n" +
+                      "Your output should contain '1. Super company'");
+              }
+      
+              db.checkCompany("Super company");
+      
+              program.execute("0\n2\nAnother company");
+              program.execute("2\nOne more company");
+      
+              db.checkCompany("Another company");
+              db.checkCompany("One more company");
+      
+              output = program.execute("1");
+      
+              if (!output.contains("1. Super company")) {
+                  return wrong("In the company list expected one company.\n" +
+                      "Your output should contain '1. Super company'.\n" +
+                      "Companies should be sorted by 'ID' column");
+              }
+      
+              if (!output.contains("2. Another company")) {
+                  return wrong("In the company list expected one company.\n" +
+                      "Your output should contain '2. Another company'.\n" +
+                      "Companies should be sorted by 'ID' column");
+              }
+      
+              if (!output.contains("3. One more company")) {
+                  return wrong("In the company list expected one company.\n" +
+                      "Your output should contain '2. Another company'.\n" +
+                      "Companies should be sorted by 'ID' column");
+              }
+      
+              if (!output.contains("0. Back")) {
+                  return wrong("There is no back option in the company list.\n" +
+                      "Your output should contain '0. Back'");
+              }
+      
+              program.execute("2");
+      
+              return correct();
+          }
+      
+          @DynamicTest
+          public CheckResult test7_testAddCar() {
+      
+              TestedProgram program = new TestedProgram();
+              program.start("-databaseFileName", "carsharing");
+              String output;
+      
+              db.clearCarTable();
+              db.clearCompanyTable();
+      
+              program.execute("1");
+              program.execute("2");
+              program.execute("Car To Go");
+              program.execute("2");
+              program.execute("Drive Now");
+      
+              db.checkCompany("Car To Go");
+              db.checkCompany("Drive Now");
+      
+              output = program.execute("1");
+      
+              if (!output.contains("1. Car To Go")) {
+                  return wrong("In the company list expected one company.\n" +
+                      "Your output should contain '1. Car To Go'.\n" +
+                      "Companies should be sorted by 'ID' column");
+              }
+      
+              if (!output.contains("2. Drive Now")) {
+                  return wrong("In the company list expected one company.\n" +
+                      "Your output should contain '2. Drive Now'\n" +
+                      "Companies should be sorted by 'ID' column");
+              }
+      
+              if (!output.contains("0. Back")) {
+                  return wrong("There is no back option in the company list.\n" +
+                      "Your output should contain '0. Back'");
+              }
+      
+              output = program.execute("1");
+      
+              if (!output.contains("1. Car list")) {
+                  return wrong("After choosing company you should print menu that contains '1. Car list' item");
+              }
+      
+              if (!output.contains("2. Create a car")) {
+                  return wrong("After choosing company you should print menu that contains '2. Create a car' item");
+              }
+      
+              if (!output.contains("0. Back")) {
+                  return wrong("After choosing company you should print menu that contains '0. Back' item");
+              }
+      
+              output = program.execute("1");
+      
+              if (!output.contains("The car list is empty!")) {
+                  return wrong("If no cars were added to the company you should print 'The car list is empty!'");
+              }
+      
+              output = program.execute("2");
+      
+              if (!output.contains("Enter the car name:")) {
+                  return wrong("After choosing 'Create a car' item you should ask to enter a car name. " +
+                      "Your output should contain 'Enter the car name:'");
+              }
+      
+              program.execute("Hyundai Venue");
+              db.checkCar("Car To Go", "Hyundai Venue");
+      
+              program.execute("2");
+              program.execute("Maruti Suzuki Dzire");
+              db.checkCar("Car To Go", "Maruti Suzuki Dzire");
+      
+              output = program.execute("1");
+      
+              if (!output.contains("1. Hyundai Venue")) {
+                  return wrong("In the car list expected 'Hyundai Venue' car.\n" +
+                      "Your output should contain '1. Hyundai Venue'\n" +
+                      "Cars should be sorted by 'ID' column");
+              }
+      
+              if (!output.contains("2. Maruti Suzuki Dzire")) {
+                  return wrong("In the car list expected 'Maruti Suzuki Dzire' car.\n" +
+                      "Your output should contain '2. Maruti Suzuki Dzire'\n" +
+                      "Cars should be sorted by 'ID' column");
+              }
+      
+              program.execute("0");
+      
+              program.execute("1");
+              program.execute("2");
+      
+              output = program.execute("1");
+      
+              if (!output.contains("The car list is empty!")) {
+                  return wrong("If no cars were added to the company you should print 'The car list is empty!'");
+              }
+      
+              program.execute("2");
+              program.execute("Lamborghini Urraco");
+      
+              output = program.execute("1");
+      
+              if (!output.contains("1. Lamborghini Urraco")) {
+                  return wrong("In the car list expected 'Lamborghini Urraco' car.\n" +
+                      "Your output should contain '1. Lamborghini Urraco'");
+              }
+      
+              if (output.contains("Hyundai Venue")) {
+                  return wrong("Your output contains 'Hyundai Venue'. This car is from another company");
+              }
+      
+              if (output.contains("Maruti Suzuki Dzire")) {
+                  return wrong("Your output contains 'Maruti Suzuki Dzire'. This car is from another company");
+              }
+      
+              db.checkCar("Drive Now", "Lamborghini Urraco");
+      
+              program.execute("0");
+              program.execute("0");
+              program.execute("0");
+      
+              return correct();
+          }
+      
+          private CheckResult wrong(String message) {
+              db.closeConnection();
+              return CheckResult.wrong(message);
+          }
+      
+          private CheckResult correct() {
+              db.closeConnection();
+              return CheckResult.correct();
+          }
+      }
+    learner_created: false
+  - name: test/DatabaseUtil.java
+    visible: false
+    text: |
+      import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+      
+      import java.sql.*;
+      import java.util.HashMap;
+      
+      public class DatabaseUtil {
+      
+          private Connection connection = null;
+          private static final String databaseFilePath = "./src/carsharing/db/carsharing";
+      
+          public Connection getConnection() {
+              if (connection != null) {
+                  return connection;
+              }
+              try {
+                  connection = DriverManager.getConnection("jdbc:h2:" + databaseFilePath);
+              } catch (SQLException ignored) {
+                  throw new WrongAnswer("Can't connect to the database.");
+              }
+              return connection;
+          }
+      
+          public void closeConnection() {
+              if (connection != null) {
+                  try {
+                      connection.close();
+                  } catch (SQLException ignored) {
+                      System.out.println(ignored.getErrorCode());
+                      throw new WrongAnswer("Can't close connection to the database.");
+                  }
+                  connection = null;
+              }
+          }
+      
+          public ResultSet executeQuery(String query) {
+              try {
+                  return getConnection().createStatement().executeQuery(query);
+              } catch (SQLException exception) {
+                  throw new WrongAnswer("Can't execute query to the database.\n" +
+                          "SQL Message:\n" + exception.getMessage());
+              }
+          }
+      
+          public boolean ifTableExist(String tableName) {
+              try {
+                  tableName = tableName.toUpperCase();
+                  ResultSet resultSet = executeQuery("SHOW TABLES");
+                  while (resultSet.next()) {
+                      if (resultSet.getString("TABLE_NAME").equals(tableName)) {
+                          return true;
+                      }
+                  }
+                  return false;
+              } catch (SQLException exception) {
+                  throw new WrongAnswer("Can't execute query to the database.\n" +
+                          "SQL Message:\n" + exception.getMessage());
+              }
+          }
+      
+          public void ifColumnsExist(String tableName, String[][] columns) {
+              try {
+                  ResultSet resultSet = getConnection()
+                          .createStatement()
+                          .executeQuery("SHOW COLUMNS FROM " + tableName.toUpperCase());
+      
+                  HashMap<String, String> correctColumns = new HashMap<>();
+                  for (String[] column : columns) {
+                      correctColumns.put(column[0], column[1]);
+                  }
+      
+                  while (resultSet.next()) {
+                      String columnName = resultSet.getString("FIELD");
+                      if (correctColumns.containsKey(columnName)) {
+                          if (!resultSet.getString("TYPE").contains(correctColumns.get(columnName))) {
+                              throw new WrongAnswer("In the '" + tableName.toUpperCase() + "' table '" + columnName
+                                      + "' column should be of " + correctColumns.get(columnName) + " type.");
+                          }
+                          correctColumns.remove(columnName);
+                      }
+                  }
+                  if (!correctColumns.isEmpty()) {
+                      throw new WrongAnswer("Can't find in '" + tableName.toUpperCase() + "' table the following columns: " + correctColumns.toString());
+                  }
+              } catch (SQLException exception) {
+                  throw new WrongAnswer("Can't execute query to the database.\n" +
+                          "SQL Message:\n" + exception.getMessage());
+              }
+          }
+      
+          public void clearCompanyTable() {
+              try {
+                  getConnection().createStatement().execute("DELETE FROM COMPANY");
+                  getConnection().createStatement().execute("ALTER TABLE COMPANY ALTER COLUMN id RESTART WITH 1");
+              } catch (SQLException ignored) {
+                  throw new WrongAnswer("Can't delete rows from the COMPANY table.");
+              }
+          }
+      
+          public void clearCarTable() {
+              try {
+                  getConnection().createStatement().execute("DELETE FROM CAR");
+                  getConnection().createStatement().execute("ALTER TABLE CAR ALTER COLUMN id RESTART WITH 1");
+              } catch (SQLException ignored) {
+                  throw new WrongAnswer("Can't delete rows from the CAR table.");
+              }
+          }
+      
+          public void checkCompany(String name) {
+              try {
+                  PreparedStatement preparedStatement = getConnection().prepareStatement("SELECT * FROM COMPANY WHERE NAME = ?");
+                  preparedStatement.setString(1, name);
+                  ResultSet resultSet = preparedStatement.executeQuery();
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Can't find '" + name + "' company in the 'COMPANY' table.");
+                  }
+              } catch (SQLException ignored) {
+                  throw new WrongAnswer("Can't select data from the 'COMPANY' table!");
+              }
+          }
+      
+          public void checkCar(String companyName, String carName) {
+              try {
+                  PreparedStatement companyStatement = getConnection().prepareStatement("SELECT * FROM COMPANY WHERE NAME = ?");
+                  companyStatement.setString(1, companyName);
+      
+                  PreparedStatement carStatement = getConnection().prepareStatement("SELECT * FROM CAR WHERE NAME = ?");
+                  carStatement.setString(1, carName);
+      
+                  ResultSet resultSet = companyStatement.executeQuery();
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Can't find '" + companyName + "' company in the 'COMPANY' table.");
+                  }
+      
+                  int id = resultSet.getInt("ID");
+      
+                  resultSet = carStatement.executeQuery();
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Can't find '" + carName + "' car in the 'CAR' table.");
+                  }
+                  if (resultSet.getInt("COMPANY_ID") != id) {
+                      throw new WrongAnswer("'COMPANY_ID' of the '" + carName + "' car is wrong. It should reference to the '" + companyName + "' ID.");
+                  }
+              } catch (SQLException exception) {
+                  throw new WrongAnswer("Can't execute query to the database.\n" +
+                          "SQL Message:\n" + exception.getMessage());
+              }
+          }
+      
+          public void checkCompanyColumnProperties() {
+              try {
+                  ResultSet resultSet = getConnection().createStatement().executeQuery("SELECT * FROM INFORMATION_SCHEMA.CONSTRAINTS" +
+                          " WHERE COLUMN_LIST = 'ID' AND TABLE_NAME = 'COMPANY' AND CONSTRAINT_TYPE = 'PRIMARY KEY'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'ID' column in 'COMPANY' table doesn't have PRIMARY KEY constraint.");
+                  }
+      
+                  resultSet = getConnection().createStatement().executeQuery("SELECT * FROM INFORMATION_SCHEMA.CONSTRAINTS" +
+                          " WHERE COLUMN_LIST = 'NAME' AND TABLE_NAME = 'COMPANY' AND CONSTRAINT_TYPE = 'UNIQUE'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'NAME' column in 'COMPANY' table doesn't have UNIQUE constraint.");
+                  }
+      
+                  resultSet = getConnection().createStatement().executeQuery("SELECT  * FROM INFORMATION_SCHEMA.COLUMNS" +
+                          " WHERE COLUMN_NAME = 'NAME' AND TABLE_NAME = 'COMPANY' AND IS_NULLABLE = 'NO'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'NAME' column in 'COMPANY' table doesn't have NOT NULL constraint.");
+                  }
+              } catch (SQLException exception) {
+                  throw new WrongAnswer("Can't execute query to the database.\n" +
+                          "SQL Message:\n" + exception.getMessage());
+              }
+          }
+      
+          public void checkCarColumnProperties() {
+              try {
+                  ResultSet resultSet = getConnection().createStatement().executeQuery("SELECT * FROM INFORMATION_SCHEMA.CONSTRAINTS" +
+                          " WHERE COLUMN_LIST = 'ID' AND TABLE_NAME = 'CAR' AND CONSTRAINT_TYPE = 'PRIMARY KEY'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'ID' column in 'CAR' table doesn't have PRIMARY KEY constraint.");
+                  }
+      
+                  resultSet = getConnection().createStatement().executeQuery("SELECT * FROM INFORMATION_SCHEMA.COLUMNS" +
+                          " WHERE COLUMN_NAME = 'NAME' AND TABLE_NAME = 'CAR' AND IS_NULLABLE = 'NO'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'NAME' column in 'CAR' table doesn't have NOT NULL constraint.");
+                  }
+      
+                  resultSet = getConnection().createStatement().executeQuery("SELECT * FROM INFORMATION_SCHEMA.COLUMNS" +
+                          " WHERE COLUMN_NAME = 'COMPANY_ID' AND TABLE_NAME = 'CAR' AND IS_NULLABLE = 'NO'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'COMPANY_ID' column in 'CAR' table doesn't have NOT NULL constraint.");
+                  }
+      
+                  resultSet = getConnection().createStatement().executeQuery("SELECT  * FROM INFORMATION_SCHEMA.CONSTRAINTS" +
+                          " WHERE COLUMN_LIST = 'COMPANY_ID' AND TABLE_NAME = 'CAR' AND CONSTRAINT_TYPE = 'REFERENTIAL'");
+      
+                  if (!resultSet.next()) {
+                      throw new WrongAnswer("Looks like 'COMPANY_ID' column in 'CAR' table is not FOREIGN KEY. It should refer to 'ID' column of the 'COMPANY' table.");
+                  }
+      
+                  if (!resultSet.getString("SQL").replace("\"", "").contains("COMPANY(ID)")) {
+                      throw new WrongAnswer("Looks like 'COMPANY_ID' column in 'CAR' table doesn't refer to 'ID' column of the 'COMPANY' table.");
+                  }
+              } catch (SQLException exception) {
+                  throw new WrongAnswer("Can't execute query to the database.\n" +
+                          "SQL Message:\n" + exception.getMessage());
+              }
+          }
+      }
+    learner_created: false
+  - name: src/carsharing/Main.java
+    visible: true
+    text: |-
+      package carsharing;
+      
+      public class Main {
+      
+          public static void main(String[] args) {
+              // write your code here
+          }
+      }
+    learner_created: false
+  - name: src/carsharing/db/carsharing.trace.db
+    visible: true
+    text: "2023-10-08 21:43:57 jdbc[3]: exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException:\
+    \ Table \"COMPANY\" already exists; SQL statement:\nCREATE TABLE COMPANY (ID INTEGER\
+    \ not NULL,  NAME VARCHAR(255),  PRIMARY KEY ( id )) [42101-200]\n2023-10-08 21:43:57\
+    \ database: wrong user or password; user: \"\"\norg.h2.message.DbException: Wrong\
+    \ user name or password [28000-200]\n\tat org.h2.message.DbException.get(DbException.java:205)\n\
+    \tat org.h2.message.DbException.get(DbException.java:181)\n\tat org.h2.message.DbException.get(DbException.java:170)\n\
+    \tat org.h2.engine.Engine.openSession(Engine.java:131)\n\tat org.h2.engine.Engine.openSession(Engine.java:192)\n\
+    \tat org.h2.engine.Engine.createSessionAndValidate(Engine.java:171)\n\tat org.h2.engine.Engine.createSession(Engine.java:166)\n\
+    \tat org.h2.engine.Engine.createSession(Engine.java:29)\n\tat org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:340)\n\
+    \tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:173)\n\tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:152)\n\
+    \tat org.h2.Driver.connect(Driver.java:69)\n\tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:681)\n\
+    \tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:252)\n\t\
+    at DatabaseUtil.getConnection(DatabaseUtil.java:19)\n\tat CarSharingTest.test2_checkDatabaseConnection(CarSharingTest.java:74)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.common.ReflectionUtils.invokeMethod(ReflectionUtils.java:92)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting.lambda$searchDynamicTests$2(DynamicTesting.java:284)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting$1DynamicTestElement.lambda$getTests$0(DynamicTesting.java:252)\n\
+    \tat org.hyperskill.hstest.testing.runner.AsyncDynamicTestingRunner.lambda$runMain$0(AsyncDynamicTestingRunner.java:45)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\nCaused by: org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException:\
+    \ Wrong user name or password [28000-200]\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:461)\n\
+    \tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\t\
+    ... 28 more\n2023-10-08 22:37:27 jdbc[3]: exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException:\
+    \ Table \"COMPANY\" already exists; SQL statement:\nCREATE TABLE COMPANY (ID INTEGER\
+    \ not NULL,  NAME VARCHAR(255),  PRIMARY KEY ( ID )) [42101-200]\n2023-10-08 22:37:27\
+    \ database: wrong user or password; user: \"\"\norg.h2.message.DbException: Wrong\
+    \ user name or password [28000-200]\n\tat org.h2.message.DbException.get(DbException.java:205)\n\
+    \tat org.h2.message.DbException.get(DbException.java:181)\n\tat org.h2.message.DbException.get(DbException.java:170)\n\
+    \tat org.h2.engine.Engine.openSession(Engine.java:131)\n\tat org.h2.engine.Engine.openSession(Engine.java:192)\n\
+    \tat org.h2.engine.Engine.createSessionAndValidate(Engine.java:171)\n\tat org.h2.engine.Engine.createSession(Engine.java:166)\n\
+    \tat org.h2.engine.Engine.createSession(Engine.java:29)\n\tat org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:340)\n\
+    \tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:173)\n\tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:152)\n\
+    \tat org.h2.Driver.connect(Driver.java:69)\n\tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:681)\n\
+    \tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:252)\n\t\
+    at DatabaseUtil.getConnection(DatabaseUtil.java:19)\n\tat CarSharingTest.test2_checkDatabaseConnection(CarSharingTest.java:74)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.common.ReflectionUtils.invokeMethod(ReflectionUtils.java:92)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting.lambda$searchDynamicTests$2(DynamicTesting.java:284)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting$1DynamicTestElement.lambda$getTests$0(DynamicTesting.java:252)\n\
+    \tat org.hyperskill.hstest.testing.runner.AsyncDynamicTestingRunner.lambda$runMain$0(AsyncDynamicTestingRunner.java:45)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\nCaused by: org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException:\
+    \ Wrong user name or password [28000-200]\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:461)\n\
+    \tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\t\
+    ... 28 more\n2023-10-08 22:38:44 jdbc[3]: exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException:\
+    \ Table \"COMPANY\" already exists; SQL statement:\nCREATE TABLE COMPANY (ID INTEGER\
+    \ not NULL,  NAME VARCHAR(255),  PRIMARY KEY ( ID )) [42101-200]\n2023-10-08 22:38:44\
+    \ database: wrong user or password; user: \"\"\norg.h2.message.DbException: Wrong\
+    \ user name or password [28000-200]\n\tat org.h2.message.DbException.get(DbException.java:205)\n\
+    \tat org.h2.message.DbException.get(DbException.java:181)\n\tat org.h2.message.DbException.get(DbException.java:170)\n\
+    \tat org.h2.engine.Engine.openSession(Engine.java:131)\n\tat org.h2.engine.Engine.openSession(Engine.java:192)\n\
+    \tat org.h2.engine.Engine.createSessionAndValidate(Engine.java:171)\n\tat org.h2.engine.Engine.createSession(Engine.java:166)\n\
+    \tat org.h2.engine.Engine.createSession(Engine.java:29)\n\tat org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:340)\n\
+    \tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:173)\n\tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:152)\n\
+    \tat org.h2.Driver.connect(Driver.java:69)\n\tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:681)\n\
+    \tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:252)\n\t\
+    at DatabaseUtil.getConnection(DatabaseUtil.java:19)\n\tat CarSharingTest.test2_checkDatabaseConnection(CarSharingTest.java:74)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.common.ReflectionUtils.invokeMethod(ReflectionUtils.java:92)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting.lambda$searchDynamicTests$2(DynamicTesting.java:284)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting$1DynamicTestElement.lambda$getTests$0(DynamicTesting.java:252)\n\
+    \tat org.hyperskill.hstest.testing.runner.AsyncDynamicTestingRunner.lambda$runMain$0(AsyncDynamicTestingRunner.java:45)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\nCaused by: org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException:\
+    \ Wrong user name or password [28000-200]\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:461)\n\
+    \tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\t\
+    ... 28 more\n2023-10-08 22:55:10 jdbc[3]: exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException:\
+    \ Syntax error in SQL statement \"CREATE TABLE COMPANY (ID INTEGER NOT NULL, \
+    \ NAME VARCHAR(255)[*]\"; expected \"FOR, UNSIGNED, INVISIBLE, VISIBLE, NOT, NULL,\
+    \ AS, DEFAULT, GENERATED, ON, NOT, NULL, AUTO_INCREMENT, BIGSERIAL, SERIAL, IDENTITY,\
+    \ NULL_TO_DEFAULT, SEQUENCE, SELECTIVITY, COMMENT, CONSTRAINT, PRIMARY, UNIQUE,\
+    \ NOT, NULL, COMMENT, CHECK, REFERENCES, ,, )\"; SQL statement:\nCREATE TABLE\
+    \ COMPANY (ID INTEGER not NULL,  NAME VARCHAR(255) [42001-200]\n2023-10-08 22:55:10\
+    \ jdbc[3]: exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in\
+    \ SQL statement \"CREATE TABLE COMPANY (ID INTEGER NOT NULL,  NAME VARCHAR(255)[*]\"\
+    ; expected \"FOR, UNSIGNED, INVISIBLE, VISIBLE, NOT, NULL, AS, DEFAULT, GENERATED,\
+    \ ON, NOT, NULL, AUTO_INCREMENT, BIGSERIAL, SERIAL, IDENTITY, NULL_TO_DEFAULT,\
+    \ SEQUENCE, SELECTIVITY, COMMENT, CONSTRAINT, PRIMARY, UNIQUE, NOT, NULL, COMMENT,\
+    \ CHECK, REFERENCES, ,, )\"; SQL statement:\nCREATE TABLE COMPANY (ID INTEGER\
+    \ not NULL,  NAME VARCHAR(255) [42001-200]\n2023-10-08 22:55:11 database: wrong\
+    \ user or password; user: \"\"\norg.h2.message.DbException: Wrong user name or\
+    \ password [28000-200]\n\tat org.h2.message.DbException.get(DbException.java:205)\n\
+    \tat org.h2.message.DbException.get(DbException.java:181)\n\tat org.h2.message.DbException.get(DbException.java:170)\n\
+    \tat org.h2.engine.Engine.openSession(Engine.java:131)\n\tat org.h2.engine.Engine.openSession(Engine.java:192)\n\
+    \tat org.h2.engine.Engine.createSessionAndValidate(Engine.java:171)\n\tat org.h2.engine.Engine.createSession(Engine.java:166)\n\
+    \tat org.h2.engine.Engine.createSession(Engine.java:29)\n\tat org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:340)\n\
+    \tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:173)\n\tat org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:152)\n\
+    \tat org.h2.Driver.connect(Driver.java:69)\n\tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:681)\n\
+    \tat java.sql/java.sql.DriverManager.getConnection(DriverManager.java:252)\n\t\
+    at DatabaseUtil.getConnection(DatabaseUtil.java:19)\n\tat CarSharingTest.test2_checkDatabaseConnection(CarSharingTest.java:74)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\
+    \tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.common.ReflectionUtils.invokeMethod(ReflectionUtils.java:92)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting.lambda$searchDynamicTests$2(DynamicTesting.java:284)\n\
+    \tat org.hyperskill.hstest.dynamic.input.DynamicTesting$1DynamicTestElement.lambda$getTests$0(DynamicTesting.java:252)\n\
+    \tat org.hyperskill.hstest.testing.runner.AsyncDynamicTestingRunner.lambda$runMain$0(AsyncDynamicTestingRunner.java:45)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\nCaused by: org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException:\
+    \ Wrong user name or password [28000-200]\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:461)\n\
+    \tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\t\
+    ... 28 more\n2023-10-08 23:13:01 jdbc[3]: exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException:\
+    \ Table \"COMPANY\" already exists; SQL statement:\nCREATE TABLE COMPANY (ID INTEGER\
+    \ not NULL,  NAME VARCHAR(255)) [42101-200]\n2023-10-10 22:25:10 jdbc[7]: exception\n\
+    org.h2.jdbc.JdbcSQLSyntaxErrorException: Column count does not match; SQL statement:\n\
+    INSERT INTO COMPANY (NAME) VALUES () [21002-200]\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:453)\n\
+    \tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\t\
+    at org.h2.message.DbException.get(DbException.java:205)\n\tat org.h2.message.DbException.get(DbException.java:181)\n\
+    \tat org.h2.message.DbException.get(DbException.java:170)\n\tat org.h2.command.dml.Insert.prepare(Insert.java:319)\n\
+    \tat org.h2.command.Parser.prepareCommand(Parser.java:744)\n\tat org.h2.engine.Session.prepareLocal(Session.java:657)\n\
+    \tat org.h2.engine.Session.prepareCommand(Session.java:595)\n\tat org.h2.jdbc.JdbcConnection.prepareCommand(JdbcConnection.java:1235)\n\
+    \tat org.h2.jdbc.JdbcStatement.executeUpdateInternal(JdbcStatement.java:164)\n\
+    \tat org.h2.jdbc.JdbcStatement.executeUpdate(JdbcStatement.java:126)\n\tat carsharing.Main.doCreateCo(Main.java:118)\n\
+    \tat carsharing.Main.main(Main.java:64)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native\
+    \ Method)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.testing.execution.MainMethodExecutor.invokeMain(MainMethodExecutor.java:160)\n\
+    \tat org.hyperskill.hstest.testing.execution.MainMethodExecutor.lambda$launch$1(MainMethodExecutor.java:188)\n\
+    \tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\n2023-10-10 22:25:56 jdbc[7]:\
+    \ exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException: Column count does not match;\
+    \ SQL statement:\nINSERT INTO COMPANY (NAME) VALUES () [21002-200]\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:453)\n\
+    \tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\t\
+    at org.h2.message.DbException.get(DbException.java:205)\n\tat org.h2.message.DbException.get(DbException.java:181)\n\
+    \tat org.h2.message.DbException.get(DbException.java:170)\n\tat org.h2.command.dml.Insert.prepare(Insert.java:319)\n\
+    \tat org.h2.command.Parser.prepareCommand(Parser.java:744)\n\tat org.h2.engine.Session.prepareLocal(Session.java:657)\n\
+    \tat org.h2.engine.Session.prepareCommand(Session.java:595)\n\tat org.h2.jdbc.JdbcConnection.prepareCommand(JdbcConnection.java:1235)\n\
+    \tat org.h2.jdbc.JdbcStatement.executeUpdateInternal(JdbcStatement.java:164)\n\
+    \tat org.h2.jdbc.JdbcStatement.executeUpdate(JdbcStatement.java:126)\n\tat carsharing.Main.doCreateCo(Main.java:118)\n\
+    \tat carsharing.Main.main(Main.java:64)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native\
+    \ Method)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.testing.execution.MainMethodExecutor.invokeMain(MainMethodExecutor.java:160)\n\
+    \tat org.hyperskill.hstest.testing.execution.MainMethodExecutor.lambda$launch$1(MainMethodExecutor.java:188)\n\
+    \tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\n2023-10-10 22:27:47 jdbc[7]:\
+    \ exception\norg.h2.jdbc.JdbcSQLSyntaxErrorException: Column \"SUPER\" not found;\
+    \ SQL statement:\nINSERT INTO COMPANY (NAME) VALUES (Super) [42122-200]\n\tat\
+    \ org.h2.message.DbException.getJdbcSQLException(DbException.java:453)\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:429)\n\
+    \tat org.h2.message.DbException.get(DbException.java:205)\n\tat org.h2.message.DbException.get(DbException.java:181)\n\
+    \tat org.h2.expression.ExpressionColumn.getColumnException(ExpressionColumn.java:163)\n\
+    \tat org.h2.expression.ExpressionColumn.optimize(ExpressionColumn.java:145)\n\t\
+    at org.h2.command.dml.Insert.prepare(Insert.java:327)\n\tat org.h2.command.Parser.prepareCommand(Parser.java:744)\n\
+    \tat org.h2.engine.Session.prepareLocal(Session.java:657)\n\tat org.h2.engine.Session.prepareCommand(Session.java:595)\n\
+    \tat org.h2.jdbc.JdbcConnection.prepareCommand(JdbcConnection.java:1235)\n\tat\
+    \ org.h2.jdbc.JdbcStatement.executeUpdateInternal(JdbcStatement.java:164)\n\t\
+    at org.h2.jdbc.JdbcStatement.executeUpdate(JdbcStatement.java:126)\n\tat carsharing.Main.doCreateCo(Main.java:118)\n\
+    \tat carsharing.Main.main(Main.java:64)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native\
+    \ Method)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)\n\
+    \tat java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\
+    \tat java.base/java.lang.reflect.Method.invoke(Method.java:568)\n\tat org.hyperskill.hstest.testing.execution.MainMethodExecutor.invokeMain(MainMethodExecutor.java:160)\n\
+    \tat org.hyperskill.hstest.testing.execution.MainMethodExecutor.lambda$launch$1(MainMethodExecutor.java:188)\n\
+    \tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\n\
+    \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat\
+    \ java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\
+    \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\
+    \tat java.base/java.lang.Thread.run(Thread.java:833)\n"
+    learner_created: true
+  - name: src/carsharing/db/carsharing.mv.db
+    visible: true
+    text: SDoyLGJsb2NrOjQsYmxvY2tTaXplOjEwMDAsY2h1bms6MyxjbGVhbjoxLGNyZWF0ZWQ6MThiMTk3MDI4OGIsZm9ybWF0OjEsdmVyc2lvbjozLGZsZXRjaGVyOmU0MjIxODExCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEg6MixibG9jazo0LGJsb2NrU2l6ZToxMDAwLGNodW5rOjMsY2xlYW46MSxjcmVhdGVkOjE4YjE5NzAyODhiLGZvcm1hdDoxLHZlcnNpb246MyxmbGV0Y2hlcjplNDIyMTgxMQoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjaHVuazoxLGJsb2NrOjIsbGVuOjEsbWFwOjYsbWF4OjEzMCxuZXh0OjMscGFnZXM6Mixyb290OjQwMDAwMDM2OGMsdGltZTo2Mix2ZXJzaW9uOjEscGluQ291bnQ6MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKAAAAJQCRAwEAMQARBCEgJlhTRVQgQ1JFQVRFX0JVSUxEIDIwMAAAAPkAIgANAAVtYXAuMQVtYXAuMgVtYXAuMwVtYXAuNAVtYXAuNQVtYXAuNgxuYW1lLmxvYkRhdGELbmFtZS5sb2JNYXALbmFtZS5sb2JSZWYVbmFtZS5vcGVuVHJhbnNhY3Rpb25zDG5hbWUudGFibGUuMA5uYW1lLnVuZG9Mb2cuMQZyb290LjMVbmFtZTpvcGVuVHJhbnNhY3Rpb25zDm5hbWU6dW5kb0xvZy4xDG5hbWU6dGFibGUuMAtuYW1lOmxvYk1hcAtuYW1lOmxvYlJlZgxuYW1lOmxvYkRhdGEBNgE0ATUBMQEzATIKNDAwMDAwMmQ0MgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGNodW5rOjEsYmxvY2s6Mix2ZXJzaW9uOjEsZmxldGNoZXI6ODRkMGQ1ZjYgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKY2h1bms6MixibG9jazozLGxlbjoxLG1hcDo4LG1heDo2MDAsbmV4dDo0LHBhZ2VzOjIscm9vdDo4MDAwMDExMzUwLHRpbWU6OWIsdmVyc2lvbjoyLHBpbkNvdW50OjAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCgAAA5gDLwMIADEyMzQ1NjcFCAARBCEgJlhTRVQgQ1JFQVRFX0JVSUxEIDIwMBEEIiAiDTJDUkVBVEUgVVNFUiBJRiBOT1QgRVhJU1RTICIiIFNBTFQgJycgSEFTSCAnJyBBRE1JThEEIyAgDZUCQ1JFQVRFIENBQ0hFRCBUQUJMRSAiUFVCTElDIi4iQ09NUEFOWSIoCiAgICAiSUQiIElOVEVHRVIgREVGQVVMVCBORVhUIFZBTFVFIEZPUiAiUFVCTElDIi4iU1lTVEVNX1NFUVVFTkNFXzM2M0QyNEVCXzBDMTlfNDA5RF84NjVBX0FDOEY3NTVGNUQ2NyIgTk9UIE5VTEwgTlVMTF9UT19ERUZBVUxUIFNFUVVFTkNFICJQVUJMSUMiLiJTWVNURU1fU0VRVUVOQ0VfMzYzRDI0RUJfMEMxOV80MDlEXzg2NUFfQUM4Rjc1NUY1RDY3IiwKICAgICJOQU1FIiBWQVJDSEFSKDI1NSkgTk9UIE5VTEwKKREEJCAjDW1DUkVBVEUgU0VRVUVOQ0UgIlBVQkxJQyIuIlNZU1RFTV9TRVFVRU5DRV8zNjNEMjRFQl8wQzE5XzQwOURfODY1QV9BQzhGNzU1RjVENjciIFNUQVJUIFdJVEggMSBCRUxPTkdTX1RPX1RBQkxFEQQlICENT0NSRUFURSBVTklRVUUgSU5ERVggIlBVQkxJQyIuIkNPTlNUUkFJTlRfSU5ERVhfNiIgT04gIlBVQkxJQyIuIkNPTVBBTlkiKCJOQU1FIikRBCYgJQ14QUxURVIgVEFCTEUgIlBVQkxJQyIuIkNPTVBBTlkiIEFERCBDT05TVFJBSU5UICJQVUJMSUMiLiJDT05TVFJBSU5UXzYiIFVOSVFVRSgiTkFNRSIpIElOREVYICJQVUJMSUMiLiJDT05TVFJBSU5UX0lOREVYXzYiEQQnICENR0NSRUFURSBQUklNQVJZIEtFWSAiUFVCTElDIi4iUFJJTUFSWV9LRVlfNiIgT04gIlBVQkxJQyIuIkNPTVBBTlkiKCJJRCIpEQQoICUNd0FMVEVSIFRBQkxFICJQVUJMSUMiLiJDT01QQU5ZIiBBREQgQ09OU1RSQUlOVCAiUFVCTElDIi4iQ09OU1RSQUlOVF82MyIgUFJJTUFSWSBLRVkoIklEIikgSU5ERVggIlBVQkxJQyIuIlBSSU1BUllfS0VZXzYiAAAB+AW3ABIAB2NodW5rLjEFbWFwLjEFbWFwLjIFbWFwLjMFbWFwLjQFbWFwLjUFbWFwLjYFbWFwLjcFbWFwLjgMbmFtZS5pbmRleC41DG5hbWUubG9iRGF0YQtuYW1lLmxvYk1hcAtuYW1lLmxvYlJlZhVuYW1lLm9wZW5UcmFuc2FjdGlvbnMMbmFtZS50YWJsZS4wDG5hbWUudGFibGUuMw5uYW1lLnVuZG9Mb2cuMQZyb290LjORAWNodW5rOjEsYmxvY2s6MixsZW46MSxsaXZlTWF4OjAsbGl2ZVBhZ2VzOjAsbWFwOjYsbWF4OjEzMCxuZXh0OjMscGFnZXM6Mixyb290OjQwMDAwMDM2OGMsdGltZTo2Mix1bnVzZWQ6OWIsdW51c2VkQXRWZXJzaW9uOjEsdmVyc2lvbjoxLHBpbkNvdW50OjAVbmFtZTpvcGVuVHJhbnNhY3Rpb25zDm5hbWU6dW5kb0xvZy4xDG5hbWU6dGFibGUuMAtuYW1lOmxvYk1hcAtuYW1lOmxvYlJlZgxuYW1lOmxvYkRhdGEcbmFtZTp0YWJsZS4zLGNyZWF0ZVZlcnNpb246MRxuYW1lOmluZGV4LjUsY3JlYXRlVmVyc2lvbjoxATgBNgE0ATUBMQEzATcBMgo4MDAwMDAyZDU0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjaHVuazoyLGJsb2NrOjMsdmVyc2lvbjoyLGZsZXRjaGVyOjk1ZDBkOGY2ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCmNodW5rOjMsYmxvY2s6NCxsZW46MSxtYXA6YSxtYXg6N2MwLG5leHQ6NSxwYWdlczo0LHJvb3Q6YzAwMDAxMzYxMix0aW1lOjI2Yyx2ZXJzaW9uOjMscGluQ291bnQ6MCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKAAADmAMtAwgAMTIzNDU2NwUIABEEISAmWFNFVCBDUkVBVEVfQlVJTEQgMjAwEQQiICINMkNSRUFURSBVU0VSIElGIE5PVCBFWElTVFMgIiIgU0FMVCAnJyBIQVNIICcnIEFETUlOEQQjICANlQJDUkVBVEUgQ0FDSEVEIFRBQkxFICJQVUJMSUMiLiJDT01QQU5ZIigKICAgICJJRCIgSU5URUdFUiBERUZBVUxUIE5FWFQgVkFMVUUgRk9SICJQVUJMSUMiLiJTWVNURU1fU0VRVUVOQ0VfMzYzRDI0RUJfMEMxOV80MDlEXzg2NUFfQUM4Rjc1NUY1RDY3IiBOT1QgTlVMTCBOVUxMX1RPX0RFRkFVTFQgU0VRVUVOQ0UgIlBVQkxJQyIuIlNZU1RFTV9TRVFVRU5DRV8zNjNEMjRFQl8wQzE5XzQwOURfODY1QV9BQzhGNzU1RjVENjciLAogICAgIk5BTUUiIFZBUkNIQVIoMjU1KSBOT1QgTlVMTAopEQQkICMNbUNSRUFURSBTRVFVRU5DRSAiUFVCTElDIi4iU1lTVEVNX1NFUVVFTkNFXzM2M0QyNEVCXzBDMTlfNDA5RF84NjVBX0FDOEY3NTVGNUQ2NyIgU1RBUlQgV0lUSCA0IEJFTE9OR1NfVE9fVEFCTEURBCUgIQ1PQ1JFQVRFIFVOSVFVRSBJTkRFWCAiUFVCTElDIi4iQ09OU1RSQUlOVF9JTkRFWF82IiBPTiAiUFVCTElDIi4iQ09NUEFOWSIoIk5BTUUiKREEJiAlDXhBTFRFUiBUQUJMRSAiUFVCTElDIi4iQ09NUEFOWSIgQUREIENPTlNUUkFJTlQgIlBVQkxJQyIuIkNPTlNUUkFJTlRfNiIgVU5JUVVFKCJOQU1FIikgSU5ERVggIlBVQkxJQyIuIkNPTlNUUkFJTlRfSU5ERVhfNiIRBCcgIQ1HQ1JFQVRFIFBSSU1BUlkgS0VZICJQVUJMSUMiLiJQUklNQVJZX0tFWV82IiBPTiAiUFVCTElDIi4iQ09NUEFOWSIoIklEIikRBCggJQ13QUxURVIgVEFCTEUgIlBVQkxJQyIuIkNPTVBBTlkiIEFERCBDT05TVFJBSU5UICJQVUJMSUMiLiJDT05TVFJBSU5UXzYzIiBQUklNQVJZIEtFWSgiSUQiKSBJTkRFWCAiUFVCTElDIi4iUFJJTUFSWV9LRVlfNiIAAABFBAgHAwAxMjMAEQIhUVN1cGVyIGNvbXBhbnkRAiJTQW5vdGhlciBjb21wYW55EQIjVE9uZSBtb3JlIGNvbXBhbnkAAABFBNUIAwARAlNBbm90aGVyIGNvbXBhbnkyEQJUT25lIG1vcmUgY29tcGFueTMRAlFTdXBlciBjb21wYW55MQAAAAAAAAL+BiUAFwAHY2h1bmsuMQdjaHVuay4yBW1hcC4xBW1hcC4zBW1hcC40BW1hcC41BW1hcC42BW1hcC43BW1hcC44BW1hcC45BW1hcC5hDG5hbWUuaW5kZXguNQxuYW1lLmxvYkRhdGELbmFtZS5sb2JNYXALbmFtZS5sb2JSZWYVbmFtZS5vcGVuVHJhbnNhY3Rpb25zDG5hbWUudGFibGUuMAxuYW1lLnRhYmxlLjMObmFtZS51bmRvTG9nLjEObmFtZS51bmRvTG9nLjIGcm9vdC4zBnJvb3QuNwZyb290LjiRAWNodW5rOjEsYmxvY2s6MixsZW46MSxsaXZlTWF4OjAsbGl2ZVBhZ2VzOjAsbWFwOjYsbWF4OjEzMCxuZXh0OjMscGFnZXM6Mixyb290OjQwMDAwMDM2OGMsdGltZTo2Mix1bnVzZWQ6OWIsdW51c2VkQXRWZXJzaW9uOjEsdmVyc2lvbjoxLHBpbkNvdW50OjCSAWNodW5rOjIsYmxvY2s6MyxsZW46MSxsaXZlTWF4OjAsbGl2ZVBhZ2VzOjAsbWFwOjgsbWF4OjYwMCxuZXh0OjQscGFnZXM6Mixyb290OjgwMDAwMTEzNTAsdGltZTo5Yix1bnVzZWQ6MjZjLHVudXNlZEF0VmVyc2lvbjoyLHZlcnNpb246MixwaW5Db3VudDowFW5hbWU6b3BlblRyYW5zYWN0aW9ucwxuYW1lOnRhYmxlLjALbmFtZTpsb2JNYXALbmFtZTpsb2JSZWYMbmFtZTpsb2JEYXRhHG5hbWU6dGFibGUuMyxjcmVhdGVWZXJzaW9uOjEcbmFtZTppbmRleC41LGNyZWF0ZVZlcnNpb246MR5uYW1lOnVuZG9Mb2cuMSxjcmVhdGVWZXJzaW9uOjIebmFtZTp1bmRvTG9nLjIsY3JlYXRlVmVyc2lvbjoyATgBNgE0ATUBMQEzATcBOQFhCmMwMDAwMDJkOTQKYzAwMDAxMTM4NgpjMDAwMDEyNGM2AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY2h1bms6MyxibG9jazo0LHZlcnNpb246MyxmbGV0Y2hlcjphNmQwZGJmNiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAo=
+    learner_created: true
+feedback_link: https://hyperskill.org/learn/step/11503#comment
+status: Solved
+feedback:
+  message: Congratulations!
+  time: "Sat, 21 Oct 2023 03:22:39 UTC"
+record: 3

@@ -1,0 +1,35 @@
+type: choice
+is_multiple_choice: true
+options:
+  - text: The visibility of &#x27;getAge()&#x27; and &#x27;setAge()&#x27; should be
+      private.
+  - text: The &#x27;setName()&#x27; method could have been left out because it&#x27;s
+      not standard Java practice.
+  - text: The principle of encapsulation is maintained by making the &#x27;name&#x27;
+      and &#x27;age&#x27; fields private and accessing them through public methods.
+  - text: "We modified the &#x27;age&#x27; field directly without using setter, which\
+    \ violates the encapsulation principle."
+  - text: The &#x27;setAge()&#x27; method is an example of a setter with validation
+      to prevent setting invalid age.
+files:
+  - name: src/Task.java
+    visible: true
+    text: |
+      // You can experiment here, it won’t be checked
+      
+      public class Task {
+        public static void main(String[] args) {
+          // put your code here
+        }
+      }
+    learner_created: false
+feedback_link: https://hyperskill.org/learn/step/31392#comment
+status: Solved
+feedback:
+  message: <html>Correct solution</html>
+  time: "Sat, 07 Oct 2023 03:41:44 UTC"
+record: -1
+selected_options:
+  - 2
+  - 4
+local_check: false

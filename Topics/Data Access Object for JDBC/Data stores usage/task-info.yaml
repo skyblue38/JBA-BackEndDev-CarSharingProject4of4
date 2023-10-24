@@ -1,0 +1,31 @@
+type: choice
+is_multiple_choice: true
+options:
+  - text: Java Collection object
+  - text: Databases
+  - text: File
+  - text: In-memory storage
+files:
+  - name: src/Task.java
+    visible: true
+    text: |
+      // You can experiment here, it won’t be checked
+      
+      public class Task {
+        public static void main(String[] args) {
+          // put your code here
+        }
+      }
+    learner_created: false
+feedback_link: https://hyperskill.org/learn/step/20192#comment
+status: Solved
+feedback:
+  message: <html>Correct solution</html>
+  time: "Mon, 09 Oct 2023 11:21:28 UTC"
+record: -1
+selected_options:
+  - 0
+  - 1
+  - 2
+  - 3
+local_check: false

@@ -1,0 +1,30 @@
+type: choice
+is_multiple_choice: false
+options:
+  - text: "It declares an interface which allows you to access, create, modify and delete\
+    \ objects."
+  - text: It declares an interface which allows only to access objects
+  - text: It declares an interface which can help to copy an existing object or create
+      a new one
+  - text: It's a pattern that works only with abstract methods
+files:
+  - name: src/Task.java
+    visible: true
+    text: |
+      // You can experiment here, it won’t be checked
+      
+      public class Task {
+        public static void main(String[] args) {
+          // put your code here
+        }
+      }
+    learner_created: false
+feedback_link: https://hyperskill.org/learn/step/20190#comment
+status: Solved
+feedback:
+  message: <html>Correct solution</html>
+  time: "Mon, 09 Oct 2023 11:22:15 UTC"
+record: -1
+selected_options:
+  - 0
+local_check: false
